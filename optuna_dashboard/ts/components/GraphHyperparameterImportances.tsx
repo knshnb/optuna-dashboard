@@ -1,12 +1,11 @@
 import * as plotly from "plotly.js-dist-min"
-import React, { FC, useEffect } from "react"
-import { Typography, useTheme, Box, Card, CardContent } from "@mui/material"
+import React, { FC, useEffect, useState } from "react"
+import { Typography, useTheme, Box, Card, CardContent, FormControl, FormLabel, Switch } from "@mui/material"
 
 import { plotlyDarkTemplate } from "./PlotlyDarkMode"
 import { actionCreator } from "../action"
 import { useParamImportanceValue, useStudyDirections } from "../state"
 const plotDomId = "graph-hyperparameter-importances"
-const plotBackendDomId = "graph-hyperparameter-importances-backend"
 
 export const GraphHyperparameterImportance: FC<{
   studyId: number
@@ -23,26 +22,28 @@ export const GraphHyperparameterImportance: FC<{
     study?.objective_names ||
     study?.directions.map((d, i) => `Objective ${i}`) ||
     []
+  const [useBackend, setUseBackend] = useState<boolean>(false)
+  const handleUseBackend = () => {
+    setUseBackend(!useBackend)
+  }
 
   useEffect(() => {
     action.updateParamImportance(studyId)
   }, [numCompletedTrials])
 
   useEffect(() => {
-    fetch(`/api/studies/${studyId}/param_importances_plot`, {mode: 'cors'})
-    .then((response) => response.json())
-    .then((figure) => {
-      plotly.react(plotBackendDomId, figure.data, figure.layout)
-    }).catch((err) => {
-      console.error(err);
-    })
-  }, [numCompletedTrials])
-
-  useEffect(() => {
-    if (importances !== null && nObjectives === importances.length) {
+    if (useBackend) {
+      fetch(`/api/studies/${studyId}/param_importances_plot`, {mode: 'cors'})
+      .then((response) => response.json())
+      .then((figure) => {
+        plotly.react(plotDomId, figure.data, figure.layout)
+      }).catch((err) => {
+        console.error(err);
+      })
+    } else if (importances !== null && nObjectives === importances.length) {
       plotParamImportance(importances, objectiveNames, theme.palette.mode)
     }
-  }, [nObjectives, importances, theme.palette.mode])
+  }, [nObjectives, importances, theme.palette.mode, useBackend])
 
   return (
     <Card>
@@ -53,8 +54,15 @@ export const GraphHyperparameterImportance: FC<{
         >
           Hyperparameter Importance
         </Typography>
+        <FormControl component="fieldset">
+          <FormLabel component="legend">Use optuna.visualization:</FormLabel>
+          <Switch
+            checked={useBackend}
+            onChange={handleUseBackend}
+            value="enable"
+          />
+        </FormControl>
         <Box id={plotDomId} sx={{ height: graphHeight }} />
-        <Box id={plotBackendDomId} sx={{ height: graphHeight }} />
       </CardContent>
     </Card>
   )
